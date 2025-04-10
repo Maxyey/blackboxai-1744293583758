@@ -210,13 +210,18 @@ document.addEventListener('DOMContentLoaded', () => {
             const url = audioData.data.toLowerCase();
             let audioType = audioData.type;
 
-            // Auto-detect type from URL if not specified
+            // Auto-detect type and clean URL
             if (!audioType || audioType === 'url') {
-                if (url.includes('youtube.com') || url.includes('youtu.be')) {
+                const cleanUrl = url.trim();
+                if (cleanUrl.includes('youtube.com') || cleanUrl.includes('youtu.be')) {
                     audioType = 'youtube';
-                } else if (url.includes('drive.google.com')) {
+                } else if (cleanUrl.includes('drive.google.com')) {
                     audioType = 'gdrive';
-                } else if (url.includes('soundcloud.com')) {
+                    // Ensure URL ends with /view for Google Drive
+                    if (!cleanUrl.endsWith('/view')) {
+                        url = cleanUrl + (cleanUrl.endsWith('/') ? 'view' : '/view');
+                    }
+                } else if (cleanUrl.includes('soundcloud.com')) {
                     audioType = 'soundcloud';
                 } else {
                     audioType = 'file';
@@ -225,12 +230,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Handle different audio types
             switch (audioType) {
-                case 'youtube':
-                    const videoId = url.includes('youtu.be') 
-                        ? url.split('/').pop().split('?')[0]
-                        : url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i)?.[1];
-                    
-                    audioContent = videoId ? `
+                case 'youtube': {
+                    let videoId = '';
+                    try {
+                        if (url.includes('youtu.be/')) {
+                            videoId = url.split('youtu.be/')[1].split(/[#?&]/)[0];
+                        } else if (url.includes('youtube.com/watch')) {
+                            const urlParams = new URLSearchParams(url.split('?')[1]);
+                            videoId = urlParams.get('v');
+                        } else if (url.includes('youtube.com/embed/')) {
+                            videoId = url.split('embed/')[1].split(/[#?&]/)[0];
+                        }
+                        videoId = videoId?.trim();
+                    } catch (e) {
+                        console.error('Error parsing YouTube URL:', e);
+                    }
+
+                    audioContent = videoId && videoId.length === 11 ? `
                         <div class="aspect-video">
                             <iframe class="w-full h-full" 
                                 src="https://www.youtube.com/embed/${videoId}" 
@@ -241,86 +257,34 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                     ` : '<p class="text-xs theme-text opacity-60 text-center">Invalid YouTube URL</p>';
                     break;
+                }
 
-                case 'gdrive':
-                    const fileId = url.match(/(?:\/d\/|id=)([^/&?]+)/i)?.[1];
-                    if (!fileId) {
-                        audioContent = '<p class="text-xs theme-text opacity-60 text-center">Invalid Google Drive URL</p>';
-                        break;
+                case 'gdrive': {
+                    let fileId = '';
+                    try {
+                        if (url.includes('/file/d/')) {
+                            fileId = url.split('/file/d/')[1].split(/[/?]/)[0];
+                        } else if (url.includes('/d/')) {
+                            fileId = url.split('/d/')[1].split(/[/?]/)[0];
+                        } else if (url.includes('id=')) {
+                            fileId = url.split('id=')[1].split(/[&?]/)[0];
+                        }
+                        fileId = fileId?.trim();
+                    } catch (e) {
+                        console.error('Error parsing Google Drive URL:', e);
                     }
 
-                    // Get both direct and preview URLs
-                    const downloadUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
-                    const previewUrl = `https://drive.google.com/file/d/${fileId}/preview`;
-                    
-                    // Check if it's an audio file by extension
-                    const isAudioFile = /\.(mp3|wav|ogg|m4a|aac|flac|wma|opus)$/i.test(url);
-                    
-                    if (isAudioFile) {
-                        // For audio files, try multiple approaches
-                        audioContent = `
-                            <div class="flex flex-col gap-2">
-                                <!-- Direct audio player -->
-                                <div class="flex items-center">
-                                    <audio id="audio-${fileId}" controls class="w-full h-7" preload="metadata">
-                                        <source src="${downloadUrl}" type="audio/mpeg">
-                                        <source src="${downloadUrl}" type="audio/wav">
-                                        <source src="${downloadUrl}" type="audio/ogg">
-                                        <source src="${downloadUrl}" type="audio/aac">
-                                        <!-- Fallback to preview if direct download fails -->
-                                        <source src="${previewUrl}" type="audio/mpeg">
-                                    </audio>
-                                </div>
-                                <!-- Fallback iframe player -->
-                                <div class="flex items-center" id="fallback-${fileId}" style="display: none;">
-                                    <iframe src="${previewUrl}" 
-                                        class="w-full h-16" 
-                                        allow="autoplay">
-                                    </iframe>
-                                </div>
-                            </div>
-                            <script>
-                                // Wait for DOM to be ready
-                                setTimeout(() => {
-                                    const audioPlayer = document.getElementById('audio-${fileId}');
-                                    const fallbackPlayer = document.getElementById('fallback-${fileId}');
-                                    
-                                    if (audioPlayer && fallbackPlayer) {
-                                        // Show fallback if any source fails
-                                        const sources = audioPlayer.getElementsByTagName('source');
-                                        let errorCount = 0;
-                                        
-                                        Array.from(sources).forEach(source => {
-                                            source.addEventListener('error', () => {
-                                                errorCount++;
-                                                if (errorCount === sources.length) {
-                                                    fallbackPlayer.style.display = 'flex';
-                                                    audioPlayer.style.display = 'none';
-                                                }
-                                            });
-                                        });
-
-                                        // Also handle general audio error
-                                        audioPlayer.addEventListener('error', () => {
-                                            fallbackPlayer.style.display = 'flex';
-                                            audioPlayer.style.display = 'none';
-                                        });
-                                    }
-                                }, 100);
-                            </script>
-                        `;
-                    } else {
-                        // For non-audio files, use the preview iframe
-                        audioContent = `
-                            <div class="flex items-center">
-                                <iframe src="${previewUrl}" 
-                                    class="w-full h-16" 
-                                    allow="autoplay">
-                                </iframe>
-                            </div>
-                        `;
-                    }
+                    audioContent = fileId ? `
+                        <div class="flex items-center">
+                            <iframe src="https://drive.google.com/file/d/${fileId}/preview" 
+                                class="w-full h-16" 
+                                allow="autoplay"
+                                sandbox="allow-same-origin allow-scripts allow-forms">
+                            </iframe>
+                        </div>
+                    ` : '<p class="text-xs theme-text opacity-60 text-center">Invalid Google Drive URL</p>';
                     break;
+                }
 
                 case 'soundcloud':
                     audioContent = `
@@ -336,26 +300,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     break;
 
                 default: // Handle direct audio files
-                    const fileExt = url.split('.').pop().toLowerCase();
-                    const mimeTypes = {
-                        'mp3': 'audio/mpeg',
-                        'wav': 'audio/wav',
-                        'ogg': 'audio/ogg',
-                        'mp4': 'audio/mp4',
-                        'm4a': 'audio/mp4',
-                        'aac': 'audio/aac',
-                        'webm': 'audio/webm',
-                        'flac': 'audio/flac',
-                        'wma': 'audio/x-ms-wma',
-                        'opus': 'audio/opus'
-                    };
-                    
                     audioContent = `
                         <div class="flex items-center">
                             <audio controls class="w-full h-7">
-                                ${Object.entries(mimeTypes).map(([ext, mime]) => `
-                                    <source src="${audioData.data}" type="${mime}">
-                                `).join('')}
+                                <source src="${audioData.data}" type="audio/mpeg">
                                 Your browser does not support the audio element.
                             </audio>
                         </div>
