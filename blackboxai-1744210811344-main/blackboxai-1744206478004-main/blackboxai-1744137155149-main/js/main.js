@@ -239,16 +239,23 @@ document.addEventListener('DOMContentLoaded', () => {
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
-                    <div class="p-4 bg-gray-50">
-                        <p class="text-sm font-medium theme-text mb-2">${song.demoText || 'Demo Version'}</p>
+                    <div class="p-4 bg-gray-50 border-b">
+                        <p class="text-base font-semibold theme-text mb-3 flex items-center gap-2">
+                            <i class="fas fa-music text-sm opacity-70"></i>
+                            <span>${song.demoText || 'Demo Version'}</span>
+                        </p>
                         ${audioData ? `
                             ${audioContent}
                         ` : `
                             <p class="text-xs theme-text opacity-60 text-center">No audio available</p>
                         `}
+                        <div class="mt-4 pb-3 flex flex-col">
+                            <h3 class="text-xl font-bold theme-text tracking-wide text-center mb-1">${song.title || song.name}</h3>
+                            <p class="text-xs theme-text opacity-60 italic text-right pr-1">by ${song.composer || song.author}</p>
+                        </div>
                     </div>
                 </div>
-                <div class="p-4 flex flex-col min-h-[300px]">
+                <div class="p-6 flex flex-col min-h-[300px]">
                     <div class="flex-grow flex items-center justify-center">
                         <pre class="whitespace-pre-wrap font-sans text-sm leading-6 theme-text text-center max-w-lg mx-auto">${song.lyrics}</pre>
                     </div>
