@@ -206,24 +206,89 @@ document.addEventListener('DOMContentLoaded', () => {
         let audioContent = '';
 
         if (audioData) {
-            if (audioData.type === 'youtube') {
-                const videoId = storage.getYouTubeVideoId(audioData.data);
-                audioContent = `
-                    <div class="aspect-video">
-                        <iframe class="w-full h-full" src="https://www.youtube.com/embed/${videoId}" 
-                            frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; 
-                            gyroscope; picture-in-picture" allowfullscreen></iframe>
-                    </div>
-                `;
-            } else if (audioData.type === 'url' || audioData.type === 'file') {
-                audioContent = `
-                    <div class="flex items-center">
-                        <audio controls class="w-full h-7">
-                            <source src="${audioData.data}" type="audio/mpeg">
-                            Your browser does not support the audio element.
-                        </audio>
-                    </div>
-                `;
+            // Determine audio type and handle accordingly
+            const url = audioData.data.toLowerCase();
+            let audioType = audioData.type;
+
+            // Auto-detect type from URL if not specified
+            if (!audioType || audioType === 'url') {
+                if (url.includes('youtube.com') || url.includes('youtu.be')) {
+                    audioType = 'youtube';
+                } else if (url.includes('drive.google.com')) {
+                    audioType = 'gdrive';
+                } else if (url.includes('soundcloud.com')) {
+                    audioType = 'soundcloud';
+                } else {
+                    audioType = 'file';
+                }
+            }
+
+            // Handle different audio types
+            switch (audioType) {
+                case 'youtube':
+                    const videoId = url.includes('youtu.be') 
+                        ? url.split('/').pop().split('?')[0]
+                        : url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i)?.[1];
+                    
+                    audioContent = videoId ? `
+                        <div class="aspect-video">
+                            <iframe class="w-full h-full" 
+                                src="https://www.youtube.com/embed/${videoId}" 
+                                frameborder="0" 
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                allowfullscreen>
+                            </iframe>
+                        </div>
+                    ` : '<p class="text-xs theme-text opacity-60 text-center">Invalid YouTube URL</p>';
+                    break;
+
+                case 'gdrive':
+                    const fileId = url.match(/(?:\/d\/|id=)([^/&?]+)/i)?.[1];
+                    audioContent = fileId ? `
+                        <div class="flex items-center">
+                            <iframe src="https://drive.google.com/file/d/${fileId}/preview" 
+                                class="w-full h-16" 
+                                allow="autoplay">
+                            </iframe>
+                        </div>
+                    ` : '<p class="text-xs theme-text opacity-60 text-center">Invalid Google Drive URL</p>';
+                    break;
+
+                case 'soundcloud':
+                    audioContent = `
+                        <div class="flex items-center">
+                            <iframe src="https://w.soundcloud.com/player/?url=${encodeURIComponent(url)}&color=%23ff5500&auto_play=false&hide_related=true&show_comments=false&show_user=true&show_reposts=false&show_teaser=false" 
+                                class="w-full h-20" 
+                                scrolling="no" 
+                                frameborder="no" 
+                                allow="autoplay">
+                            </iframe>
+                        </div>
+                    `;
+                    break;
+
+                default: // Handle direct audio files
+                    const fileExt = url.split('.').pop().toLowerCase();
+                    const mimeTypes = {
+                        'mp3': 'audio/mpeg',
+                        'wav': 'audio/wav',
+                        'ogg': 'audio/ogg',
+                        'mp4': 'audio/mp4',
+                        'm4a': 'audio/mp4',
+                        'aac': 'audio/aac',
+                        'webm': 'audio/webm',
+                        'flac': 'audio/flac'
+                    };
+                    const mimeType = mimeTypes[fileExt] || 'audio/mpeg';
+                    
+                    audioContent = `
+                        <div class="flex items-center">
+                            <audio controls class="w-full h-7">
+                                <source src="${audioData.data}" type="${mimeType}">
+                                Your browser does not support the audio element.
+                            </audio>
+                        </div>
+                    `;
             }
         }
         
