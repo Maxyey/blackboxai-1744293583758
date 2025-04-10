@@ -33,6 +33,22 @@ class StorageManager {
                 }
             ];
             this.songs = sampleSongs;
+
+            // Add sample audio data
+            this.audioData = {
+                '1': { // Amazing Grace
+                    type: 'youtube',
+                    data: 'https://www.youtube.com/watch?v=X6Mtpk4jeVA'
+                },
+                '2': { // How Great Thou Art
+                    type: 'youtube',
+                    data: 'https://www.youtube.com/watch?v=dBLjjeP0PbM'
+                },
+                '3': { // It Is Well
+                    type: 'gdrive',
+                    data: 'https://drive.google.com/file/d/1234567890abcdef/view'
+                }
+            };
             this.saveSongs();
         }
     }
